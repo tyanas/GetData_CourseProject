@@ -10,3 +10,5 @@ vignettes/*.html
 vignettes/*.pdf
 .Rproj.user
 GetData_CourseProject.Rproj
+UCI HAR Dataset
+FUCI_HAR_Dataset.zip
