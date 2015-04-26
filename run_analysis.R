@@ -1,0 +1,72 @@
+# download and unzip data
+url <- 'https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip'
+filename <- 'FUCI_HAR_Dataset.zip'
+# [59.7Mb]
+download.file(url, filename, method = 'curl')
+unzip(filename)
+
+# load data into R.
+
+x_train <- read.table('UCI HAR Dataset/train/X_train.txt')
+subject_train <- read.table('UCI HAR Dataset/train/subject_train.txt')
+activity_train <- read.table('UCI HAR Dataset/train/y_train.txt')
+
+x_test <- read.table('UCI HAR Dataset/test/X_test.txt')
+subject_test <- read.table('UCI HAR Dataset/test/subject_test.txt')
+activity_test <- read.table('UCI HAR Dataset/test/y_test.txt')
+
+features <- read.table('UCI HAR Dataset/features.txt')
+activity_labels <- read.table('UCI HAR Dataset/activity_labels.txt')
+
+
+# Let's use dplyr
+#install.packages("dplyr")
+library(dplyr)
+
+train_data <- tbl_df(x_train)
+test_data <- tbl_df(x_test)
+rm(x_train)
+rm(x_test)
+
+# there are some duplicate names in features. So use workaround
+var_names <- paste(features[[1]],features[[2]])
+selected_features <- subset(features, grepl('-mean[()]|-std', V2))
+selected_var_names <- paste(selected_features[[1]], selected_features[[2]])
+
+names(train_data) <- var_names
+names(test_data) <- var_names
+
+# 2. Extracts only the measurements on the mean and standard deviation for each measurement. 
+selected_test_data <- test_data %>% 
+    select(one_of(selected_var_names)) %>% 
+    mutate(type = 'test',
+           subject_id = subject_test[[1]],
+           activity = activity_test[[1]])
+selected_train_data <- train_data %>% 
+    select(one_of(selected_var_names)) %>% 
+    mutate(type = 'train',
+           subject_id = subject_train[[1]],
+           activity = activity_train[[1]])
+
+
+# 1. Merges the training and the test sets to create one data set.
+selected_data <- bind_rows(selected_test_data, selected_train_data)
+
+
+# 3. Uses descriptive activity names to name the activities in the data set
+tmp <- as.character(mean_or_std[[2]])
+tmp <- gsub('[()]', '' ,tmp)
+clean_var_names <- gsub('-','_', tmp) 
+
+# 4. Appropriately labels the data set with descriptive variable names. 
+# length(unique(mean_or_std[[2]])) == length(mean_or_std[[2]]) so we can clean up col names
+names(selected_data) <- c(clean_var_names, c('type', 'subject', 'activity'))
+
+# 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+cleaned_data <- selected_data %>%
+    select(-type) %>%
+    group_by(subject, activity) %>%
+    summarise_each(funs(mean))
+
+# create file with cleaned data
+write.table(cleaned_data, file= 'cleaned_data.txt', row.name = FALSE)
